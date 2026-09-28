@@ -8,11 +8,20 @@ description: あべむつき【ラッキーマイン】の公認切り抜き動�
 RISEの「切り抜き講座」の手順を、Codexで回すためのSkill。
 **Codexがやるのは「探す・切る・つなぐ・下書き」まで。切り口・タイトル・サムネを決めるのと、最後の確認・投稿は本人がやる。**
 
-作業フォルダは `~/kirinuki/`（素材／文字起こし／出力／config.json）。
+作業フォルダは `~/kirinuki/`（素材／文字起こし／出力／config.json）。Windowsでは `%USERPROFILE%\kirinuki\`。
+
+**Python は必ず作業フォルダの専用環境を使う**（以下 `<PY>`）：
+- Mac：`~/kirinuki/.venv/bin/python`
+- Windows（PowerShell）：`& "$env:USERPROFILE\kirinuki\.venv\Scripts\python.exe"`
+
+**Windows で JSON（config.json・plan.json）を書くときは BOM なしの UTF-8 で書く**（ファイル編集ツールか `[IO.File]::WriteAllText(パス, 内容, (New-Object Text.UTF8Encoding($false)))`）。
 このSkillのスクリプトは、このSKILL.mdと同じフォルダの `scripts/` にある（以下 `<SKILL>/scripts`）。
 
 ## 0. 初回だけ：セットアップ
-1. `bash <SKILL>/scripts/setup.sh` を実行する（ffmpeg・文字起こし環境・作業フォルダを用意）
+1. セットアップを実行する（ffmpeg・文字起こし環境・作業フォルダを用意）
+   - Mac：`bash <SKILL>/scripts/setup.sh`
+   - Windows（PowerShell）：`powershell -ExecutionPolicy Bypass -File <SKILL>\scripts\setup.ps1`
+   - 「開き直してから、もう一度」と出たら、その通りに本人へ伝える
    - Homebrewが無いと止まる。そのときは表示された案内をそのまま本人に伝える
 2. `~/kirinuki/config.json` を本人に聞いて埋める
    - `channel_name`：切り抜きチャンネルの名前（未定なら空でよい）
@@ -32,7 +41,7 @@ RISEの「切り抜き講座」の手順を、Codexで回すためのSkill。
 - 元動画のYouTube URLが分かれば聞いておく（概要欄のクレジットに使う）
 
 ## 3. 文字起こし
-`~/kirinuki/.venv/bin/python <SKILL>/scripts/transcribe.py`
+`<PY> <SKILL>/scripts/transcribe.py`
 - `~/kirinuki/文字起こし/<動画名>.txt` に `[時:分:秒] セリフ` で出る。済みの動画は飛ばす
 - 1時間の動画で10〜20分かかることがある。待っている間に本人へ進み具合を伝える
 - 精度が低いときは `--model medium`
@@ -48,14 +57,14 @@ RISEの「切り抜き講座」の手順を、Codexで回すためのSkill。
   - 素材に元からテロップが入っているときは、**画面のテロップも文の途中で切れていないか**を切れ目の静止画で確かめる
 - 「えー」「あのー」だけの頭と、あいさつ・チャンネル紹介は落とす
 
-選んだら `~/kirinuki/出力/<タイトル>/plan.json` を書き、**本人に表で見せて確認を取る**（本人が「おまかせ」「確認なしでOK」と言っているときだけ、確認を飛ばして進め、表は最後に見せる）：
+選んだら `~/kirinuki/出力/<タイトル>/plan.json` を書き（フォルダ名に `? : * " < > | / \` が入るときは全角に置き換える）、**本人に表で見せて確認を取る**（本人が「おまかせ」「確認なしでOK」と言っているときだけ、確認を飛ばして進め、表は最後に見せる）：
 | 順番 | 動画 | 開始〜終了 | 冒頭のセリフ（原文） | 選んだ理由 |
 
 plan.json の形は `scripts/cut.py` の先頭に書いてある。
 素材が1本しかないときもそのまま進めてよい（「次は何本か入れると見ごたえが出ます」と一言添える）。
 
 ## 5. 切ってつなぐ
-`python3 <SKILL>/scripts/cut.py ~/kirinuki/出力/<タイトル>/plan.json`
+`<PY> <SKILL>/scripts/cut.py ~/kirinuki/出力/<タイトル>/plan.json`
 - plan.json は**絶対パス**で渡す
 - `本編.mp4`／`字幕.srt`／`概要欄.txt`／`使った場所.txt` ができる
 
@@ -67,9 +76,9 @@ plan.json の形は `scripts/cut.py` の先頭に書いてある。
 - 意味が変わる直し方はしない。聞き取れない箇所は無理に埋めず、本人に「ここは要確認」と伝える
 
 ### 5-3. 仕上がりを確認する
-- `ffmpeg -i 本編.mp4 -vf blackdetect=d=1 -af silencedetect=d=1.5 -f null -` で、黒い画面・長い無音が無いか見る
+- `ffmpeg -i 本編.mp4 -vf blackdetect=d=1 -af silencedetect=d=1.5 -f null -` で、黒い画面・長い無音が無いか見る（Windows で ffmpeg が見つからないときは `$env:LOCALAPPDATA\Microsoft\WinGet\Links\ffmpeg.exe`）
 - 数カ所の静止画を並べた確認用画像を作って自分で見てもよい（`QA_` から始まる名前にする）
-- 問題なければ `open ~/kirinuki/出力/<タイトル>` でフォルダを開いて見せる
+- 問題なければフォルダを開いて見せる（Mac：`open`／Windows：`explorer`）
 - やり直すときは上書きせず、`<タイトル>_v2` のように新しいフォルダにする
 
 ## 6. 本人に渡す（仕上げと投稿は本人）

@@ -1,7 +1,8 @@
 """切り抜き計画（plan.json）どおりに切ってつなぎ、字幕SRTと概要欄の下書きを作る。
 
 使い方:
-  python3 cut.py ~/kirinuki/出力/<タイトル>/plan.json
+  <venvのpython> cut.py ~/kirinuki/出力/<タイトル>/plan.json
+  （Mac: ~/kirinuki/.venv/bin/python ／ Windows: %USERPROFILE%\kirinuki\.venv\Scripts\python.exe）
 
 plan.json の形:
 {
@@ -22,11 +23,35 @@ src は ~/kirinuki からの相対パスか絶対パス。start/end は "時:分
   使った場所.txt … どの動画の何秒から何秒か（確認・振り返り用）
 """
 import json
+import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
+# Windows でも日本語や絵文字の表示で止まらないようにする
+for _s in (sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 WORK = Path.home() / "kirinuki"
+
+
+def find_ffmpeg():
+    """PATH に無くても、Windows の winget で入れた場所を探す"""
+    exe = shutil.which("ffmpeg")
+    if exe:
+        return exe
+    if os.name == "nt":
+        cand = Path(os.environ.get("LOCALAPPDATA", "")) / "Microsoft" / "WinGet" / "Links" / "ffmpeg.exe"
+        if cand.exists():
+            return str(cand)
+    sys.exit("ffmpeg が見つかりません。セットアップをもう一度実行してください。")
+
+
+FFMPEG = find_ffmpeg()
 
 
 def sec(v):
@@ -70,7 +95,7 @@ def video_filter(fmt):
 
 def main():
     plan_path = Path(sys.argv[1]).expanduser().resolve()
-    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    plan = json.loads(plan_path.read_text(encoding="utf-8-sig"))
     out_dir = plan_path.parent
     tmp = out_dir / "_parts"
     tmp.mkdir(exist_ok=True)
@@ -88,7 +113,7 @@ def main():
         part = tmp / f"{i:02d}.mp4"
         print(f"[{i}/{len(plan['clips'])}] {src.name} {hms(s)}〜{hms(e)}")
         subprocess.run([
-            "ffmpeg", "-y", "-loglevel", "error", "-ss", f"{s:.2f}", "-t", f"{e - s:.2f}", "-i", str(src),
+            FFMPEG, "-y", "-loglevel", "error", "-ss", f"{s:.2f}", "-t", f"{e - s:.2f}", "-i", str(src),
             "-filter_complex", video_filter(fmt), "-map", "[v]", "-map", "0:a?",
             "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
             "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2", str(part)], check=True)
@@ -97,7 +122,7 @@ def main():
         # 字幕：文字起こしがあれば、この区間のセリフをずらして並べる
         tj = WORK / "文字起こし" / f"{src.stem}.json"
         if tj.exists():
-            for seg in json.loads(tj.read_text(encoding="utf-8"))["segments"]:
+            for seg in json.loads(tj.read_text(encoding="utf-8-sig"))["segments"]:
                 a, b = max(seg["start"], s), min(seg["end"], e)
                 if b - a > 0.3:
                     srt.append((offset + a - s, offset + b - s, seg["text"]))
@@ -105,9 +130,9 @@ def main():
         offset += e - s
 
     lst = tmp / "list.txt"
-    lst.write_text("".join(f"file '{p}'\n" for p in parts), encoding="utf-8")
+    lst.write_text("".join(f"file '{p.name}'\n" for p in parts), encoding="utf-8")
     final = out_dir / "本編.mp4"
-    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
+    subprocess.run([FFMPEG, "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
                     "-i", str(lst), "-c", "copy", "-movflags", "+faststart", str(final)], check=True)
 
     (out_dir / "字幕.srt").write_text(
@@ -117,7 +142,7 @@ def main():
         f"{plan['title']}（合計 {hms(offset)}）\n" + "\n".join(used), encoding="utf-8")
 
     cfg_path = WORK / "config.json"
-    cfg = json.loads(cfg_path.read_text(encoding="utf-8")) if cfg_path.exists() else {}
+    cfg = json.loads(cfg_path.read_text(encoding="utf-8-sig")) if cfg_path.exists() else {}
     url = cfg.get("affiliate_url") or "（ここに自分専用の紹介URL）"
     credit = cfg.get("credit") or "あべむつき【ラッキーマイン】"
     srcs = "\n".join(u for u in plan.get("source_urls", []) if u) or "（元動画のURL）"

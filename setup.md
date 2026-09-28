@@ -9,7 +9,8 @@
 Codexが「文字起こし → 切り口に合う場面を複数の動画から選ぶ → カットしてつなぐ → 字幕SRTと概要欄の下書き」までを行い、ユーザーはCapCutで仕上げて投稿します。
 
 ## 前提
-- Mac（Apple Silicon / Intel どちらも可）
+- Mac（Apple Silicon / Intel どちらも可）または Windows 10/11（Windows は動作未検証。つまずいたら表示された内容をそのままユーザーに伝えてください）
+- まずユーザーのパソコンが Mac か Windows かを確認してから進めてください
 - RISEの会員で、会員サイトの「切り抜き講座」を見られること（素材とルールはそこにあります）
 
 ## 手順
@@ -21,30 +22,47 @@ Codexが「文字起こし → 切り口に合う場面を複数の動画から�
 ### 2. スキルをダウンロードして入れる
 次のコマンドを実行してください（`~/.codex/skills/my-kirinuki/` に入ります）。
 
+**Mac**
 ```bash
 BASE="https://ryoya9595.github.io/kirinuki-codex-kit/skill/my-kirinuki"
 DEST="$HOME/.codex/skills/my-kirinuki"
 mkdir -p "$DEST/scripts"
 curl -fsSL "$BASE/SKILL.md" -o "$DEST/SKILL.md"
-for f in setup.sh transcribe.py cut.py; do curl -fsSL "$BASE/scripts/$f" -o "$DEST/scripts/$f"; done
+for f in setup.sh setup.ps1 transcribe.py cut.py; do curl -fsSL "$BASE/scripts/$f" -o "$DEST/scripts/$f"; done
 chmod +x "$DEST/scripts/setup.sh"
 ls -la "$DEST" "$DEST/scripts"
 ```
 
-4ファイル（SKILL.md・setup.sh・transcribe.py・cut.py）がそろっていることを確認してください。
+**Windows（PowerShell）**
+```powershell
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+$BASE = "https://ryoya9595.github.io/kirinuki-codex-kit/skill/my-kirinuki"
+$DEST = Join-Path $HOME ".codex\skills\my-kirinuki"
+New-Item -ItemType Directory -Force (Join-Path $DEST "scripts") | Out-Null
+Invoke-WebRequest -UseBasicParsing "$BASE/SKILL.md" -OutFile (Join-Path $DEST "SKILL.md")
+foreach ($f in "setup.sh","setup.ps1","transcribe.py","cut.py") { Invoke-WebRequest -UseBasicParsing "$BASE/scripts/$f" -OutFile (Join-Path $DEST "scripts\$f") }
+Get-ChildItem -Recurse $DEST
+```
+
+5ファイル（SKILL.md・setup.sh・setup.ps1・transcribe.py・cut.py）がそろっていることを確認してください。
 ネットワークが使えずに失敗した場合は、ユーザーにネットワークの許可を求めてから再実行してください。
 
 ### 3. 道具を入れる（初回セットアップ）
+**Mac**
 ```bash
 bash "$HOME/.codex/skills/my-kirinuki/scripts/setup.sh"
 ```
+**Windows（PowerShell）**
+```powershell
+powershell -ExecutionPolicy Bypass -File "$HOME\.codex\skills\my-kirinuki\scripts\setup.ps1"
+```
 - 作業フォルダ `~/kirinuki/`（素材／文字起こし／出力）ができます
-- ffmpeg が無ければ Homebrew で入れます。Homebrew も無い場合は止まるので、表示された案内をユーザーに伝えてください
-- 文字起こし用の Python 環境（faster-whisper）を `~/kirinuki/.venv` に作ります（数分かかります）
+- ffmpeg が無ければ入れます（Mac＝Homebrew／Windows＝winget）。Homebrew や winget が無い場合、または「開き直してから、もう一度」と出た場合は、表示された案内をそのままユーザーに伝えてください
+- 文字起こし用の Python 環境（faster-whisper）を `~/kirinuki/.venv` に作ります（数分かかります）。Windows で Python が無い場合は winget で入れます
 - 最後に「セットアップ完了」と出れば成功です
 
 ### 4. ユーザーに2つ聞いて config.json に書く
-`~/kirinuki/config.json` の次の2つを、ユーザーに聞いて書き込んでください。
+`~/kirinuki/config.json` の次の2つを、ユーザーに聞いて書き込んでください（Windows では BOM なしの UTF-8 で書く）。
 - `channel_name`：切り抜きチャンネルの名前（未定なら空のまま）
 - `affiliate_url`：アフィリエイター登録で取った**自分専用の紹介URL**（まだなら空のまま。あとで入れられます）
 

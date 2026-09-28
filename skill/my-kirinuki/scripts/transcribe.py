@@ -11,8 +11,16 @@
 すでに文字起こし済みの動画は飛ばす。
 """
 import json
+import os
 import sys
 from pathlib import Path
+
+# Windows でも日本語や絵文字の表示で止まらないようにする
+for _s in (sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
 WORK = Path.home() / "kirinuki"
 SRC = WORK / "素材"
@@ -50,7 +58,11 @@ def main():
 
     from faster_whisper import WhisperModel
     print(f"モデル読み込み中（{model_name}・初回はダウンロードに数分かかります）…")
-    model = WhisperModel(model_name, device="cpu", compute_type="int8")
+    # Windows でユーザー名に日本語が入っていると、モデルの読み込みに失敗することがあるので英数字だけの場所に置く
+    root = None
+    if os.name == "nt" and not str(Path.home()).isascii():
+        root = str(Path(os.environ.get("PUBLIC", r"C:\Users\Public")) / "kirinuki-models")
+    model = WhisperModel(model_name, device="cpu", compute_type="int8", download_root=root)
 
     for f in todo:
         print(f"文字起こし中: {f.name}")
