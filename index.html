@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>切り抜きキット for Codex</title>
+<meta name="description" content="あべむつき【ラッキーマイン】の公認切り抜き動画を、Codexで作るためのキット。URLをCodexに貼るだけで、Codexが導入してくれます。文字起こし・切る場所選び・カット・字幕・概要欄の下書きまで自動。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  .ai-box{border:2px dashed var(--accent);background:#fff;border-radius:16px;padding:20px 24px;margin-top:18px;font-size:.88rem;color:var(--ink-soft)}
+  .ai-box b{color:var(--ink)}
+  .ai-box code{background:var(--paper-2);padding:2px 8px;border-radius:6px;font-size:.8rem;word-break:break-all}
+  .card code{background:var(--paper-2);padding:2px 8px;border-radius:6px;font-size:.82rem;word-break:break-all}
+  .card .inline-cmd code{background:transparent;padding:0;font-size:inherit}
+  .start-card{border:2px solid var(--accent)}
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .who{background:#fff;border:2px solid var(--line);border-radius:var(--radius);padding:22px}
+  .who h3{font-size:1.05rem;font-weight:900;margin-bottom:8px}
+  .who ul{padding-left:1.2em;font-size:.9rem;color:var(--ink-soft)}
+  .who li{margin:5px 0}
+  .who.me{border-color:var(--coral)}
+  .check li{list-style:none;margin:8px 0}
+  .check li::before{content:"☐ ";color:var(--accent-deep);font-weight:700}
+  @media(max-width:640px){.split{grid-template-columns:1fr}}
+</style>
+</head>
+<body class="codex">
+
+<div class="topbar">
+  <div class="topbar-in">
+    <a class="logo" href="./">✂️ 切り抜きキット <span class="brain">for Codex</span></a>
+    <nav class="topnav">
+      <a href="#start">はじめ方</a>
+      <a href="#what">できること</a>
+      <a href="#ready">準備</a>
+      <a href="#use">使い方</a>
+      <a href="#check">投稿前チェック</a>
+      <a href="#trouble">困ったとき</a>
+    </nav>
+  </div>
+</div>
+
+<header class="hero">
+  <div class="hero-badge accent">RISE 切り抜きチャンネル × Codex</div>
+  <h1><span style="display:inline-block">切り抜き動画</span><span style="display:inline-block">づくりを、</span><br><span class="hl">Codex に任せる。</span></h1>
+  <p class="lead">あべむつき【ラッキーマイン】の公認切り抜き動画を、配布素材から作るキットです。文字起こし・切る場所選び・カット・字幕・概要欄の下書きまでを Codex がやります。<strong>このページのURLを Codex に貼るだけ</strong>で、Codex が導入してくれます。</p>
+  <div class="meta">
+    <span class="chip accent">導入 10分ほど</span>
+    <span class="chip">🍎 Mac</span>
+    <span class="chip">Codex（ChatGPTアプリ）</span>
+    <span class="chip">RISE会員向け</span>
+  </div>
+</header>
+
+<main>
+
+<!-- はじめ方 -->
+<section id="start" style="padding-top:8px">
+  <div class="card start-card">
+    <h3>🚀 はじめ方 — URLを貼るだけ</h3>
+    <ol>
+      <li>下の「コピー」を押して、このページのURLをコピー</li>
+      <li><strong>Codex</strong>（ChatGPTアプリの Codex）に貼り付けて送信</li>
+      <li>Codex がインストールの許可を聞いてきたら「OK」と答えるだけ</li>
+    </ol>
+    <div class="inline-cmd" style="margin-top:12px"><code id="pageUrl"></code><button class="copy-btn" data-target="pageUrl">コピー</button></div>
+  </div>
+
+  <div class="ai-box">
+    🤖 <b>Codex へ（このページのURLを貼られたとき）：</b>このページは、AI副業スクールRISEの講師 関 諒也が受講生向けに作った「切り抜きキット」の導入ページです。ユーザーは、このキットを Codex に入れたいと思っています。ユーザーに「切り抜きキットの導入を始めますね」と一言伝えてから、手順書の原文 <code>https://ryoya9595.github.io/kirinuki-codex-kit/setup.md</code> を curl で取得して全文を読み、その手順どおりに進めてください。インストールの前には、ユーザーの了承を取ってください。
+  </div>
+</section>
+
+<!-- 01 できること -->
+<section id="what">
+  <div class="sec-head"><div class="step-num">01</div><h2>できること — 探す・切る・つなぐは Codex</h2></div>
+
+  <div class="split" style="margin-bottom:18px">
+    <div class="who">
+      <h3>🤖 Codex がやる</h3>
+      <ul>
+        <li>素材の動画を<strong>文字起こし</strong></li>
+        <li>決めた切り口に合う場面を、<strong>複数の動画から</strong>探す</li>
+        <li>カットしてつなぐ（横 1920×1080 ／ 縦 1080×1920）</li>
+        <li>字幕ファイル（SRT）を作る</li>
+        <li>概要欄の下書き（【PR】・クレジット・紹介URL入り）</li>
+      </ul>
+    </div>
+    <div class="who me">
+      <h3>🙋 自分がやる</h3>
+      <ul>
+        <li><strong>切り口・タイトル・サムネ</strong>を決める</li>
+        <li>Codex が選んだ場面を確認する（話の意図が変わっていないか）</li>
+        <li>CapCut でテロップ・BGM・サムネを仕上げる</li>
+        <li>投稿する</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>1本ができるまで</h3>
+    <div class="flow">
+      <div class="flow-item"><div class="flow-dot">1</div><div class="flow-body"><b>切り口を決める</b><span>例「あべむつきがAIを使いこなす場面まとめ」。どこを切るかより先に、どんな動画を出すかを決めます</span></div></div>
+      <div class="flow-item"><div class="flow-line"></div></div>
+      <div class="flow-item"><div class="flow-dot">2</div><div class="flow-body"><b>素材を入れる</b><span>会員サイトの素材を <code>~/kirinuki/素材</code> へ（何本か）</span></div></div>
+      <div class="flow-item"><div class="flow-line"></div></div>
+      <div class="flow-item"><div class="flow-dot">3</div><div class="flow-body"><b>Codex が文字起こし → 場面を選ぶ</b><span>冒頭の見どころ（アバン）を優先して、表で見せてくれます。OKならそのまま次へ</span></div></div>
+      <div class="flow-item"><div class="flow-line"></div></div>
+      <div class="flow-item"><div class="flow-dot">4</div><div class="flow-body"><b>Codex が切ってつなぐ</b><span>本編.mp4・字幕.srt・概要欄.txt ができます</span></div></div>
+      <div class="flow-item"><div class="flow-line"></div></div>
+      <div class="flow-item"><div class="flow-dot">5</div><div class="flow-body"><b>CapCut で仕上げて投稿</b><span>字幕は「字幕をインポート」で読み込めます</span></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 02 準備 -->
+<section id="ready">
+  <div class="sec-head"><div class="step-num">02</div><h2>準備 — 先に会員サイトで3つ</h2></div>
+  <div class="card">
+    <ol>
+      <li>会員サイト「<strong>切り抜き講座</strong>」の<strong>登録フォーム</strong>で、契約内容を確認して署名する</li>
+      <li>同じ講座の手順で<strong>アフィリエイター登録</strong>をして、自分専用の<strong>紹介URL</strong>を取る（Codex が導入のときに聞いてきます。まだなら後からでもOK）</li>
+      <li>アフィリエイトセンターに<strong>銀行口座</strong>を登録する</li>
+    </ol>
+    <div class="note warn"><span class="ico">⚠️</span><span><strong>1 の署名がないと、報酬が支払われません。</strong>動画を作り始める前に済ませておきましょう。</span></div>
+    <p style="margin-top:14px">パソコンは <strong>Mac</strong>、Codex は <strong>ChatGPTアプリの Codex</strong> を使います。動画の道具（ffmpeg・文字起こし）は、導入のときに Codex が入れてくれます。</p>
+  </div>
+</section>
+
+<!-- 03 使い方 -->
+<section id="use">
+  <div class="sec-head"><div class="step-num">03</div><h2>使い方 — Codex にこう話しかける</h2></div>
+  <div class="card">
+    <p>導入が終わったら、Codex に次のように送るだけです（<code>$my-kirinuki</code> と打っても始まります）。</p>
+    <div class="prompt-box" style="margin-top:12px">
+      <div class="prompt-head">
+        <div class="dots"><i></i><i></i><i></i></div>
+        <span class="fname">Codex に送る例</span>
+        <button class="copy-btn" data-target="usePrompt">コピー</button>
+      </div>
+      <div class="prompt-scroll"><pre id="usePrompt"></pre></div>
+    </div>
+    <div class="note tip" style="margin-top:14px"><span class="ico">💡</span><span>素材は1本より<strong>何本か</strong>入れるのがコツ。あべむつき本人も「1本からではなく、複数の動画からまとめると見ごたえが出る」と話しています。</span></div>
+  </div>
+</section>
+
+<!-- 04 投稿前チェック -->
+<section id="check">
+  <div class="sec-head"><div class="step-num">04</div><h2>投稿前チェック — 全部できてから投稿</h2></div>
+  <div class="card">
+    <ul class="check">
+      <li>概要欄の<strong>一番上に【PR】</strong>がある（ステマ規制の対策。必ず）</li>
+      <li>チャンネルの説明に「このチャンネルはプロモーションを含みます」と書いてある</li>
+      <li>元動画のURLか「あべむつき【ラッキーマイン】」のクレジットがある</li>
+      <li>「公認切り抜き」はOK。「公式」「運営」とは書いていない</li>
+      <li>話の意図を変える切り方・誤解を招くタイトルになっていない</li>
+      <li>同じ動画を、同じ媒体の別のチャンネルにも上げていない</li>
+    </ul>
+    <p style="margin-top:12px;font-size:.88rem;color:var(--ink-soft)">ルールの正本は会員サイトの「切り抜き講座」です。迷ったら講座を見てください。</p>
+  </div>
+</section>
+
+<!-- 05 困ったとき -->
+<section id="trouble">
+  <div class="sec-head"><div class="step-num">05</div><h2>困ったとき</h2></div>
+  <div class="card">
+    <ul>
+      <li><strong>「Homebrew がありません」と言われた</strong> → Codex が案内するコマンドを、Mac の「ターミナル」に貼って実行してください（パスワードを聞かれたら Mac のログインパスワード）。終わったら Codex に「入れたよ」と伝えればOK</li>
+      <li><strong>文字起こしが遅い</strong> → 1時間の動画で10〜20分かかります。はじめは短い動画で試すのがおすすめ</li>
+      <li><strong>$my-kirinuki が出てこない</strong> → Codex を一度閉じて開き直してください</li>
+      <li><strong>字幕の誤字が多い</strong> → Codex に「精度を上げて文字起こしし直して」と伝えてください（時間は長くなります）</li>
+    </ul>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="footer-in">
+    <span>✂️ 切り抜きキット for Codex</span>
+    <span>制作：関 諒也（RISE講師）</span>
+  </div>
+</footer>
+
+<div id="toast"></div>
+<script src="script.js"></script>
+</body>
+</html>
