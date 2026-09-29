@@ -15,6 +15,9 @@ plan.json の形:
   ]
 }
 src は ~/kirinuki からの相対パスか絶対パス。start/end は "時:分:秒" か秒数。
+つなぎ目の調整（省略時は両方オン）:
+  "snap": true        … 切る位置を前後の「声が途切れた瞬間」に自動でずらす（言葉の途中で切れにくくする）
+  "crossfade": 0.2    … つなぎ目で音と映像を0.2秒重ねる（0 で重ねない）
 
 出力（plan.json と同じフォルダ）:
   本編.mp4 … つないだ動画（CapCutでテロップ・サムネを仕上げる前提）
@@ -52,6 +55,8 @@ def find_ffmpeg():
 
 
 FFMPEG = find_ffmpeg()
+_probe = Path(FFMPEG).with_name("ffprobe.exe" if FFMPEG.lower().endswith(".exe") else "ffprobe")
+FFPROBE = str(_probe) if _probe.exists() else (shutil.which("ffprobe") or "ffprobe")
 
 
 def sec(v):
@@ -93,6 +98,69 @@ def video_filter(fmt):
             "pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30[v]")
 
 
+# ---------- つなぎ目の調整 ----------
+SR = 16000        # 解析用の音声サンプリング周波数
+FRAME = 160       # 10ms ごとに音の大きさを測る
+
+
+def load_audio(src, t0, dur):
+    """素材の t0 秒から dur 秒ぶんの音声を、16kHzモノラルの数値列で読む"""
+    import numpy as np
+    t0 = max(0.0, t0)
+    raw = subprocess.run([FFMPEG, "-v", "error", "-ss", f"{t0:.3f}", "-t", f"{dur:.3f}", "-i", str(src),
+                          "-vn", "-ac", "1", "-ar", str(SR), "-f", "s16le", "-"],
+                         capture_output=True, check=True).stdout
+    return t0, np.frombuffer(raw, dtype=np.int16).astype(np.float32)
+
+
+def frame_db(x):
+    """10ms ごとの音の大きさ（dB）。少しならして細かいノイズを消す"""
+    import numpy as np
+    n = len(x) // FRAME
+    fr = x[:n * FRAME].reshape(n, FRAME)
+    db = 20 * np.log10(np.sqrt((fr ** 2).mean(axis=1)) + 1e-6)
+    return np.convolve(db, np.ones(3) / 3, mode="same")
+
+
+def snap_point(src, t, kind):
+    """切る位置 t を、近くでいちばん静かな瞬間（声の切れ目）にずらす。
+    kind='start' は前に、'end' は後ろに広げる方を優先（頭や語尾の言葉を削らない）。
+    元の位置で十分静かなら動かさない。"""
+    import numpy as np
+    try:
+        # 探す幅：話し始めは前0.6秒・後0.3秒、話し終わりは前0.3秒・後0.8秒
+        lo, hi = (0.6, 0.3) if kind == "start" else (0.3, 0.8)
+        t0, x = load_audio(src, t - lo, lo + hi)
+        db = frame_db(x)
+        if len(db) < 20:
+            return t
+        times = t0 + (np.arange(len(db)) + 0.5) * FRAME / SR
+        shift = times - t
+        # 1秒ずらすごとに15dBぶんの罰点（遠くへ動かしすぎない）。言葉を削る方向は3倍
+        wrong = (shift > 0.15) if kind == "start" else (shift < -0.15)
+        score = db + 15 * np.abs(shift) * np.where(wrong, 3, 1)
+        k = int(np.argmin(score))
+        here = db[int(np.argmin(np.abs(shift)))]
+        if here <= db[k] + 3:   # 元の位置とほとんど変わらないなら動かさない
+            return t
+        return float(times[k])
+    except Exception:
+        return t
+
+
+def duration(path):
+    out = subprocess.run([FFPROBE,
+                          "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(path)],
+                         capture_output=True, text=True, check=True).stdout
+    return float(out.strip())
+
+
+def has_audio(path):
+    out = subprocess.run([FFPROBE, "-v", "error", "-select_streams", "a", "-show_entries", "stream=index",
+                          "-of", "csv=p=0", str(path)], capture_output=True, text=True).stdout
+    return bool(out.strip())
+
+
 def main():
     plan_path = Path(sys.argv[1]).expanduser().resolve()
     plan = json.loads(plan_path.read_text(encoding="utf-8-sig"))
@@ -100,9 +168,10 @@ def main():
     tmp = out_dir / "_parts"
     tmp.mkdir(exist_ok=True)
     fmt = plan.get("format", "yoko")
+    snap = plan.get("snap", True)
+    xf = float(plan.get("crossfade", 0.2))
 
-    parts, srt, used = [], [], []
-    offset = 0.0
+    parts, clips, used = [], [], []
     for i, c in enumerate(plan["clips"], 1):
         src = resolve(c["src"])
         if not src.exists():
@@ -110,6 +179,12 @@ def main():
         s, e = sec(c["start"]), sec(c["end"])
         if e <= s:
             sys.exit(f"{i}本目：終わり({c['end']})が始まり({c['start']})より前です")
+        if snap:
+            s2, e2 = snap_point(src, s, "start"), snap_point(src, e, "end")
+            if e2 - s2 > 1.0:
+                if abs(s2 - s) > 0.02 or abs(e2 - e) > 0.02:
+                    print(f"   声の切れ目に合わせて調整：{hms(s)}〜{hms(e)} → {hms(s2)}〜{hms(e2)}")
+                s, e = s2, e2
         part = tmp / f"{i:02d}.mp4"
         print(f"[{i}/{len(plan['clips'])}] {src.name} {hms(s)}〜{hms(e)}")
         subprocess.run([
@@ -118,22 +193,52 @@ def main():
             "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
             "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2", str(part)], check=True)
         parts.append(part)
+        clips.append((src, s, e))
+        used.append(f"{i}. {src.name}  {hms(s)}〜{hms(e)}（{e - s:.0f}秒）  {c.get('memo', '')}")
 
-        # 字幕：文字起こしがあれば、この区間のセリフをずらして並べる
+    # つなぐ：音と映像を xf 秒ずつ重ねる（重ねない設定・1本だけ・音が無い素材は、そのままつなぐ）
+    durs = [duration(p) for p in parts]
+    final = out_dir / "本編.mp4"
+    if xf > 0 and len(parts) > 1 and min(durs) > xf * 3 and all(has_audio(p) for p in parts):
+        starts, t = [0.0], durs[0]
+        vf, af, vlast, alast = [], [], "[0:v]", "[0:a]"
+        for k in range(1, len(parts)):
+            off = t - xf
+            starts.append(off)
+            vf.append(f"{vlast}[{k}:v]xfade=transition=fade:duration={xf}:offset={off:.3f}[v{k}]")
+            af.append(f"{alast}[{k}:a]acrossfade=d={xf}[a{k}]")
+            vlast, alast = f"[v{k}]", f"[a{k}]"
+            t = off + durs[k]
+        cmd = [FFMPEG, "-y", "-loglevel", "error"]
+        for p in parts:
+            cmd += ["-i", str(p)]
+        cmd += ["-filter_complex", ";".join(vf + af), "-map", vlast, "-map", alast,
+                "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
+                "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(final)]
+        subprocess.run(cmd, check=True)
+        total = t
+    else:
+        starts, t = [], 0.0
+        for d in durs:
+            starts.append(t)
+            t += d
+        total = t
+        lst = tmp / "list.txt"
+        lst.write_text("".join(f"file '{p.name}'\n" for p in parts), encoding="utf-8")
+        subprocess.run([FFMPEG, "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
+                        "-i", str(lst), "-c", "copy", "-movflags", "+faststart", str(final)], check=True)
+        lst.unlink()
+
+    # 字幕：文字起こしがあれば、各場面のセリフを本編の時間に合わせて並べる
+    srt = []
+    for (src, s, e), st in zip(clips, starts):
         tj = WORK / "文字起こし" / f"{src.stem}.json"
         if tj.exists():
             for seg in json.loads(tj.read_text(encoding="utf-8-sig"))["segments"]:
                 a, b = max(seg["start"], s), min(seg["end"], e)
                 if b - a > 0.3:
-                    srt.append((offset + a - s, offset + b - s, seg["text"]))
-        used.append(f"{i}. {src.name}  {hms(s)}〜{hms(e)}（{e - s:.0f}秒）  {c.get('memo', '')}")
-        offset += e - s
-
-    lst = tmp / "list.txt"
-    lst.write_text("".join(f"file '{p.name}'\n" for p in parts), encoding="utf-8")
-    final = out_dir / "本編.mp4"
-    subprocess.run([FFMPEG, "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
-                    "-i", str(lst), "-c", "copy", "-movflags", "+faststart", str(final)], check=True)
+                    srt.append((st + a - s, st + b - s, seg["text"]))
+    offset = total
 
     (out_dir / "字幕.srt").write_text(
         "\n".join(f"{n}\n{srt_ts(a)} --> {srt_ts(b)}\n{t}\n" for n, (a, b, t) in enumerate(srt, 1)),
@@ -161,7 +266,6 @@ def main():
 
     for p in parts:
         p.unlink()
-    lst.unlink()
     tmp.rmdir()
     print(f"\n完成：{final}（{hms(offset)}）")
     print(f"字幕：{out_dir / '字幕.srt'}（{len(srt)}行）")
